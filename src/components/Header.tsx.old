@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, X } from 'lucide-react';
-// Pensez à bien importer votre logo
-import logoImage from './logo-elsyvia.png'; 
+import { Menu, X, Brain } from 'lucide-react';
 
 interface HeaderProps {
   onNavigate?: (section: string) => void;
@@ -20,10 +18,10 @@ const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
   ];
 
   const handleNavClick = (href: string) => {
-    // ... (votre logique de navigation reste la même)
     if (onNavigate && href === '#blog') {
       onNavigate('blog');
     } else {
+      // Navigation normale pour les autres sections
       const element = document.querySelector(href);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth' });
@@ -35,17 +33,16 @@ const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
   return (
     <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm z-50 border-b border-gray-100">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Correction de la hauteur du header avec une valeur valide (h-20) */}
-        <div className="flex justify-between items-center h-24">
-          
+        <div className="flex justify-between items-center h-28">
           {/* Logo */}
+          <div className="flex items-center">
           <a href="#home" className="flex items-center">
-            {/* Correction de la taille du logo et utilisation de l'image importée */}
-            <img src={logoImage} alt="Logo Elsyvia" className="h-36 w-auto" />
+          <img src="logo-elsyvia.png" alt="Logo Elsyvia" className="h-28 w-auto" />
           </a>
+      </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden md:flex space-x-8">
             {menuItems.map((item) => (
               <a
                 key={item.name}
@@ -54,8 +51,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
                   e.preventDefault();
                   handleNavClick(item.href);
                 }}
-                // J'AI AJOUTÉ "text-lg" ICI POUR AGRANDIR LE TEXTE
-                className="text-lg text-gray-700 hover:text-teal-600 font-medium transition-colors duration-200"
+                className="text-gray-700 hover:text-teal-600 font-medium transition-colors duration-200"
               >
                 {item.name}
               </a>
@@ -64,17 +60,19 @@ const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
 
           {/* CTA Button */}
           <div className="hidden md:block">
-             <a
+            <a
               href="#contact"
-              // J'AI AUSSI AGRANDI LE BOUTON POUR LA COHÉRENCE
-              className="text-lg bg-gradient-to-r from-teal-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-300 transform hover:scale-105"
+              className="bg-gradient-to-r from-teal-600 to-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:shadow-lg transition-all duration-300 transform hover:scale-105"
             >
               Prenez RDV
             </a>
           </div>
 
-          {/* ... (le reste de votre code pour le menu mobile) */}
-          <button className="md:hidden p-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+          {/* Mobile Menu Button */}
+          <button
+            className="md:hidden p-2"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
@@ -82,7 +80,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
         {/* Mobile Navigation */}
         {isMenuOpen && (
           <div className="md:hidden bg-white border-t border-gray-100 py-4">
-            <nav className="flex flex-col items-center space-y-4">
+            <nav className="flex flex-col space-y-4">
               {menuItems.map((item) => (
                 <a
                   key={item.name}
@@ -91,15 +89,14 @@ const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
                     e.preventDefault();
                     handleNavClick(item.href);
                   }}
-                   // J'AI AUSSI AJOUTÉ "text-lg" ICI
-                  className="text-lg text-gray-700 hover:text-teal-600 font-medium px-4 py-2 transition-colors duration-200"
+                  className="text-gray-700 hover:text-teal-600 font-medium px-4 py-2 transition-colors duration-200"
                 >
                   {item.name}
                 </a>
               ))}
               <a
                 href="#contact"
-                className="text-lg bg-gradient-to-r from-teal-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium mt-4 text-center"
+                className="bg-gradient-to-r from-teal-600 to-blue-600 text-white px-6 py-2 rounded-lg font-medium mx-4 text-center"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Prenez RDV
