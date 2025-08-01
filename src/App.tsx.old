@@ -1,0 +1,52 @@
+// Remplacez le contenu de : src/App.tsx
+
+import React from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
+import BackgroundEffects from './components/BackgroundEffects';
+import Header from './components/Header';
+import Footer from './components/Footer';
+import HomePage from './pages/HomePage';
+import BlogPage from './pages/BlogPage'; // Simplifié, plus besoin de BlogListPage
+import PostDetailPage from './pages/PostDetailPage';
+import AdminPage from './components/AdminPage';
+import LegalNoticePage from './pages/LegalNoticePage'; // Import de la nouvelle page
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'; // Import de la nouvelle page
+import CgvPage from './pages/CgvPage';
+
+const App = () => {
+  const navigate = useNavigate();
+
+  const handleNavigation = (path: string) => {
+    if (path.startsWith('#')) {
+      navigate('/');
+      setTimeout(() => {
+        const element = document.querySelector(path);
+        if (element) element.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } else {
+      navigate(path);
+      window.scrollTo(0, 0);
+    }
+  };
+
+  return (
+    <div className="min-h-screen">
+      <BackgroundEffects />
+      <Header onNavigate={handleNavigation} />
+      <main>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:id" element={<PostDetailPage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/mentions-legales" element={<LegalNoticePage />} />
+          <Route path="/politique-confidentialite" element={<PrivacyPolicyPage />} />
+	  <Route path="/cgv" element={<CgvPage />} />        
+      </Routes>
+      </main>
+      <Footer onNavigate={handleNavigation} />
+    </div>
+  );
+};
+
+export default App;

@@ -1,0 +1,44 @@
+// Remplacez le contenu de : src/pages/BlogListPage.tsx
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import BlogPage from '../components/BlogPage';
+import { BlogPost } from '../data/blogPosts';
+
+const POSTS_PER_PAGE = 6;
+
+const BlogListPage: React.FC = () => {
+    const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
+    const [visibleCount, setVisibleCount] = useState(POSTS_PER_PAGE);
+    const navigate = useNavigate();
+    
+    useEffect(() => {
+        const fetchPosts = async () => {
+            try {
+                const response = await axios.get('/api/posts');
+                const sorted = response.data.sort((a: BlogPost, b: BlogPost) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                setAllPosts(sorted);
+            } catch (error) {
+                console.error("Erreur de récupération des articles:", error);
+            }
+        };
+        fetchPosts();
+    }, []);
+
+    const handleLoadMore = () => {
+        setVisibleCount(prevCount => prevCount + POSTS_PER_PAGE);
+    };
+
+    return (
+        <BlogPage 
+            posts={allPosts.slice(0, visibleCount)} 
+            onSelectPost={(id) => navigate(`/blog/${id}`)} 
+            onBack={() => navigate('/')} 
+            onLoadMore={handleLoadMore}
+            hasMore={visibleCount < allPosts.length}
+        />
+    );
+};
+
+export default BlogListPage;

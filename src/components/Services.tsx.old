@@ -1,3 +1,5 @@
+// Remplacez le contenu de : src/components/Services.tsx
+
 import React from 'react';
 import { Lightbulb, Cog, GraduationCap, Building2 } from 'lucide-react';
 
@@ -71,10 +73,9 @@ const Services = () => {
             const IconComponent = service.icon;
             return (
               <div key={index} className="bg-white rounded-2xl p-8 shadow-lg card-hover">
-                <div className="flex justify-center mb-6">
-                  <div className={`w-16 h-16 bg-gradient-to-r ${service.color} rounded-xl flex items-center justify-center`}>
-                    <IconComponent className="w-8 h-8 text-white" />
-                  </div>
+                {/* CORRECTION ICI : Utilisation de "grid place-items-center" pour un centrage infaillible */}
+                <div className={`w-16 h-16 bg-gradient-to-r ${service.color} rounded-xl grid place-items-center mb-6`}>
+                  <IconComponent className="w-8 h-8 text-white" />
                 </div>
                 
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">{service.title}</h3>
