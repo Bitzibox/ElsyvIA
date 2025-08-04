@@ -1,6 +1,4 @@
-// Contenu modifié pour : src/App.tsx
-
-import React, { useEffect } from 'react'; // On importe useEffect
+import React, { useEffect, useState } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -14,46 +12,57 @@ import CgvPage from './pages/CgvPage';
 import CookieConsent from './components/CookieConsent';
 import AnalyticsTracker from './components/AnalyticsTracker';
 import Chatbot from './components/Chatbot';
-import ElsyAssistantPage from './pages/ElsyAssistantPage';
+import AssistantIAPage from './pages/AssistantIAPage';
 
 const App = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  // Nouvel état pour gérer le message d'amorce de la conversation
+  const [initialChatMessage, setInitialChatMessage] = useState<string | null>(null);
 
-  // Ce hook gère le défilement vers une ancre (ex: #newsletter)
-  // à chaque fois que l'URL change.
   useEffect(() => {
     const hash = location.hash;
     if (hash) {
       const id = hash.replace('#', '');
       const element = document.getElementById(id);
       if (element) {
-        // On attend un court instant pour s'assurer que la page a eu le temps de se dessiner
         setTimeout(() => {
           element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 100);
       }
     }
-  }, [location]); // Se redéclenche à chaque changement de l'URL
+  }, [location]);
 
-  // La fonction de navigation a été simplifiée. Elle n'a plus besoin
-  // de gérer le défilement, le hook useEffect s'en occupe.
   const handleNavigation = (path: string) => {
-    if (path.startsWith('#')) {
-      // On navigue vers la page d'accueil tout en ajoutant l'ancre à l'URL
+    if (path.startsWith('#') && location.pathname === '/') {
+      const id = path.replace('#', '');
+      const element = document.getElementById(id);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else if (path.startsWith('#')) {
       navigate(`/${path}`);
     } else {
       navigate(path);
-      // On s'assure de remonter en haut de la page pour les nouvelles pages
       window.scrollTo(0, 0);
     }
   };
+
+  // Nouvelle fonction pour ouvrir le chat avec un sujet précis
+  const handleStartChatWithTopic = (topic: string) => {
+    setInitialChatMessage(topic);
+    setIsChatOpen(true);
+  };
+
+  const isHomePage = location.pathname === '/';
+  const isAssistantUIPage = location.pathname === '/assistant-ia';
 
   return (
     <div className="min-h-screen font-sans relative">
       <AnalyticsTracker />
       
-      {location.pathname === '/' && (
+      {isHomePage && (
         <>
           <video autoPlay loop muted playsInline className="fixed top-0 left-0 w-full h-full object-cover z-[-1]">
             <source src="/background.mp4" type="video/mp4" />
@@ -63,23 +72,29 @@ const App = () => {
       )}
 
       <Header onNavigate={handleNavigation} />
+      
       <main>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/blog/:id" element={<PostDetailPage />} />
           <Route path="/admin" element={<AdminPage />} />
-          <Route path="/assistant-ia" element={<ElsyAssistantPage />} />
+          <Route path="/assistant-ia" element={<AssistantIAPage startChatWithTopic={handleStartChatWithTopic} />} />
           <Route path="/mentions-legales" element={<LegalNoticePage />} />
           <Route path="/politique-confidentialite" element={<PrivacyPolicyPage />} />
           <Route path="/cgv" element={<CgvPage />} />
         </Routes>
       </main>
-      <Footer onNavigate={handleNavigation} />
-      <CookieConsent />
       
-      {/* On affiche le chatbot flottant PARTOUT SAUF sur la page de l'assistant */}
-      {location.pathname !== '/assistant-ia' && <Chatbot />}
+      {!isAssistantUIPage && <Footer onNavigate={handleNavigation} />}
+      
+      <CookieConsent />
+      <Chatbot 
+        isOpen={isChatOpen} 
+        setIsOpen={setIsChatOpen}
+        initialMessage={initialChatMessage}
+        clearInitialMessage={() => setInitialChatMessage(null)}
+      />
     </div>
   );
 };

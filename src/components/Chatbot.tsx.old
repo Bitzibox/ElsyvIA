@@ -5,10 +5,12 @@ import axios from 'axios';
 import { MessageSquare, X, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import logoImage from './logo-elsyvia.png';
+import chatbotIcon from './chatbot-icon.png';
 
-interface Message {
-  sender: 'user' | 'bot';
-  text: string;
+// On définit une structure de message qui correspond à ce que l'API Gemini attend
+export interface ChatMessage {
+  role: 'user' | 'model';
+  parts: { text: string }[];
 }
 
 const suggestedQuestions = [
@@ -19,8 +21,9 @@ const suggestedQuestions = [
 
 const Chatbot: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
-    const [messages, setMessages] = useState<Message[]>([
-        { sender: 'bot', text: "Bonjour ! Je suis Elsy, l'assistant virtuel d'ElsyvIA. Comment puis-je vous renseigner ?" }
+    // L'état s'appelle maintenant "history" pour correspondre au backend
+    const [history, setHistory] = useState<ChatMessage[]>([
+        { role: 'model', parts: [{ text: "Bonjour ! Je suis Elsy, l'assistant virtuel d'ElsyvIA. Comment puis-je vous renseigner ?" }] }
     ]);
     const [userInput, setUserInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -28,22 +31,25 @@ const Chatbot: React.FC = () => {
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+    }, [history]);
 
     const sendMessage = async (messageText: string) => {
         if (!messageText.trim()) return;
 
-        const newUserMessage: Message = { sender: 'user', text: messageText };
-        setMessages(prev => [...prev, newUserMessage]);
+        const newUserMessage: ChatMessage = { role: 'user', parts: [{ text: messageText }] };
+        const newHistory = [...history, newUserMessage];
+        
+        setHistory(newHistory);
         setIsLoading(true);
 
         try {
-            const response = await axios.post('/api/chat', { message: messageText });
-            const botReply: Message = { sender: 'bot', text: response.data.reply };
-            setMessages(prev => [...prev, botReply]);
+            // On envoie maintenant l'historique complet au backend
+            const response = await axios.post('/api/chat', { history: newHistory });
+            const botReply: ChatMessage = { role: 'model', parts: [{ text: response.data.reply }] };
+            setHistory(prev => [...prev, botReply]);
         } catch (error) {
-            const errorMessage: Message = { sender: 'bot', text: "Désolé, une erreur technique m'empêche de répondre. Veuillez réessayer plus tard." };
-            setMessages(prev => [...prev, errorMessage]);
+            const errorMessage: ChatMessage = { role: 'model', parts: [{ text: "Désolé, une erreur technique m'empêche de répondre. Veuillez réessayer plus tard." }] };
+            setHistory(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
         }
@@ -64,19 +70,18 @@ const Chatbot: React.FC = () => {
             <div className={`transition-all duration-300 ease-in-out ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 hidden'}`}>
                 <div className="w-80 sm:w-96 h-[32rem] bg-white rounded-lg shadow-xl flex flex-col">
                     <div className="bg-gradient-to-r from-teal-600 to-blue-600 p-3 text-white flex justify-between items-center rounded-t-lg">
-                        <div className="flex items-center gap-2"><img src={logoImage} alt="Avatar Elsy" className="w-8 h-8 rounded-full bg-white p-1" /><h3 className="font-semibold">Assistant ElsyvIA</h3></div>
+                        <div className="flex items-center gap-2"><img src={logoImage} alt="Avatar Elsy" className="w-8 h-8 rounded-full bg-white p-1" /><h3 className="font-semibold">Assistant Elsy</h3></div>
                         <button onClick={() => setIsOpen(false)} className="hover:opacity-75"><X size={20} /></button>
                     </div>
                     <div className="flex-1 p-4 overflow-y-auto">
-                        {messages.map((msg, index) => (
-                            <div key={index} className={`mb-3 flex items-end gap-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                {msg.sender === 'bot' && <img src={logoImage} alt="Avatar" className="w-6 h-6 rounded-full bg-white p-0.5" />}
-                                <div className={`p-2 rounded-lg max-w-[80%] ${msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                                    <ReactMarkdown className="prose prose-sm">{msg.text}</ReactMarkdown>
+                        {history.map((msg, index) => (
+                            <div key={index} className={`mb-3 flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                {msg.role === 'model' && <img src={logoImage} alt="Avatar" className="w-6 h-6 rounded-full bg-white p-0.5" />}
+                                <div className={`p-2 rounded-lg max-w-[80%] ${msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
+                                    <ReactMarkdown className="prose prose-sm">{msg.parts[0].text}</ReactMarkdown>
                                 </div>
                             </div>
                         ))}
-                        {/* CORRECTION DE L'ERREUR ICI */}
                         {isLoading && (
                             <div className="flex items-end gap-2 justify-start">
                                 <img src={logoImage} alt="Avatar" className="w-6 h-6 rounded-full bg-white p-0.5" />
@@ -91,7 +96,7 @@ const Chatbot: React.FC = () => {
                         )}
                         <div ref={messagesEndRef} />
                     </div>
-                    {messages.length <= 1 && (
+                    {history.length <= 1 && (
                         <div className="p-3 border-t">
                             <p className="text-xs text-gray-500 mb-2">Suggestions :</p>
                             <div className="flex flex-wrap gap-2">
@@ -110,10 +115,10 @@ const Chatbot: React.FC = () => {
                 </div>
             </div>
             <button
-                onClick={() => setIsOpen(true)}
-                className={`flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-lg ${isOpen ? 'hidden' : 'flex'}`}
+                onClick={() => setIsOpen(prev => !prev)}
+                className={`transition-all duration-300 ease-in-out transform hover:scale-110`}
             >
-                <MessageSquare size={32} />
+                {isOpen ? null : <img src={chatbotIcon} alt="Ouvrir le chatbot" className="w-20 h-20 rounded-full" />}
             </button>
         </div>
     );
