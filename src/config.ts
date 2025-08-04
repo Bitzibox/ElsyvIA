@@ -8,7 +8,7 @@ interface Config {
 
 const config: Config = {
   // Essaie d'abord la variable d'environnement, sinon utilise la clé en dur
-  geminiApiKey: process.env.REACT_APP_GEMINI_API_KEY || 'AIzaSyCzrN5ASkBHRDUaikql09fPNlWaaIzL9b4',
+  geminiApiKey: process.env.REACT_APP_GEMINI_API_KEY || '',
   isDevelopment: process.env.NODE_ENV === 'development'
 };
 
