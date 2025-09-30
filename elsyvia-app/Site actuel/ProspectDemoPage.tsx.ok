@@ -1,0 +1,195 @@
+import React, { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { LogOut } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import axios from 'axios';
+
+// IMPORTANT : Le jeton d'accès reste le même
+// Remplacez 'votre-token-secret-unique-pour-la-demo-prospects' par un jeton de votre choix
+const CORRECT_TOKEN = 'Elsyv1Acgenial2025!';
+
+const ProspectDemoPage: React.FC = () => {
+    const [token, setToken] = useState('');
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [loginError, setLoginError] = useState('');
+    
+    // Nouveaux états pour la démo
+    const [userObjective, setUserObjective] = useState('');
+    const [generatedPlan, setGeneratedPlan] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    useEffect(() => {
+        const storedToken = sessionStorage.getItem('elsyvia_demo_token');
+        if (storedToken === CORRECT_TOKEN) {
+            setToken(storedToken);
+            setIsLoggedIn(true);
+        }
+    }, []);
+
+    const handleLogin = (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoginError('');
+        if (token === CORRECT_TOKEN) {
+            sessionStorage.setItem('elsyvia_demo_token', token);
+            setIsLoggedIn(true);
+        } else {
+            setLoginError('Jeton d\'accès incorrect.');
+        }
+    };
+
+    const handleLogout = () => {
+        sessionStorage.removeItem('elsyvia_demo_token');
+        setIsLoggedIn(false);
+        setToken('');
+    };
+
+    const handleGeneratePlan = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!userObjective.trim() || isGenerating) return;
+
+        setIsGenerating(true);
+        setGeneratedPlan(''); // Réinitialise l'affichage
+        
+        try {
+            // -- Instruction système améliorée pour un effet "wahou" --
+            const systemInstruction = `
+                CONTEXTE:
+                Ton nom est Elsy. Tu es une consultante IA de haut niveau et experte pour la société Elsyvia.
+                Ton rôle est de fournir des plans d'action stratégiques, CONCRETS et pragmatiques.
+
+                OBJECTIF PRINCIPAL:
+                Le prospect a soumis la problématique métier suivante : "${userObjective}".
+                Tu dois agir comme si tu avais déjà réalisé un audit rapide et que tu étais en train de synthétiser une proposition de valeur.
+
+                STYLE ET FORMAT:
+                - Rédige une réponse courte mais percutante.
+                - Commence par un titre en gras **Plan d'action ElsyvIA**.
+                - Rédige une phrase d'introduction qui reformule le problème et montre que tu as compris.
+                - Propose un plan en 3 étapes concrètes, chacune avec un titre en gras et une brève description.
+                - Utilise des puces (-) pour lister les points.
+                - Termine par une phrase qui met en avant la valeur ajoutée d'un accompagnement par Elsyvia, sans pour autant faire de la publicité agressive.
+                - N'invente pas d'informations, base-toi sur tes connaissances des services d'Elsyvia (automatisation, chatbots, conseil, formation).
+                
+                EXEMPLE:
+                Problème: "Comment puis-je automatiser mes factures ?"
+                Réponse attendue:
+                **Plan d'action ElsyvIA**
+                Pour répondre à votre besoin d'automatisation des factures, voici une proposition de plan d'action en 3 étapes.
+                
+                **1. Diagnostic et Cartographie**
+                - Analyse de votre processus de traitement actuel.
+                - Identification des points de friction et des opportunités d'automatisation.
+                
+                **2. Intégration de la Solution**
+                - Mise en place d'un outil de reconnaissance de caractères (OCR) spécialisé.
+                - Intégration de cet outil avec votre logiciel de comptabilité existant.
+                
+                **3. Formation et Accompagnement**
+                - Formation de vos équipes à l'utilisation de la nouvelle solution.
+                - Mise en place d'un suivi pour garantir l'adoption et la performance.
+                
+                L'implémentation de cette solution vous permettrait de vous concentrer sur l'essentiel et d'optimiser votre productivité.
+            `;
+            
+            const response = await axios.post('/api/chat', { 
+                history: [
+                    { role: 'user', parts: [{ text: systemInstruction }] },
+                    { role: 'model', parts: [{ text: 'Entendu. Je suis prête à générer un plan.' }] },
+                ],
+                // Le message de l'utilisateur n'est plus le prompt complet, mais juste l'objectif
+                message: userObjective 
+            });
+
+            setGeneratedPlan(response.data.reply);
+
+        } catch (error) {
+            console.error("Erreur lors de la génération du plan :", error);
+            setGeneratedPlan("Désolé, une erreur est survenue lors de la génération du plan. Veuillez réessayer plus tard.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    if (!isLoggedIn) {
+        return (
+            <>
+                <Helmet>
+                    <title>Accès Démo | ElsyvIA</title>
+                    <meta name="robots" content="noindex, nofollow" />
+                </Helmet>
+                <div className="min-h-screen flex items-center justify-center bg-gray-100 pt-20">
+                    <form onSubmit={handleLogin} className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
+                        <h1 className="text-2xl font-bold mb-6 text-center">Accès Espace Démo</h1>
+                        <div className="mb-4">
+                            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="token">Jeton d'accès</label>
+                            <input
+                                id="token"
+                                type="password"
+                                value={token}
+                                onChange={(e) => setToken(e.target.value)}
+                                className="w-full px-4 py-2 border rounded-lg"
+                                placeholder="Entrez votre jeton secret"
+                                required
+                            />
+                        </div>
+                        {loginError && <p className="text-red-500 text-sm mb-4 text-center">{loginError}</p>}
+                        <button type="submit" className="w-full bg-teal-600 text-white py-2 rounded-lg hover:bg-teal-700">Accéder à la démo</button>
+                    </form>
+                </div>
+            </>
+        );
+    }
+    
+    return (
+        <>
+            <Helmet>
+                <title>Démonstration | ElsyvIA</title>
+                <meta name="robots" content="noindex, nofollow" />
+            </Helmet>
+            <div className="container mx-auto px-4 py-12 pt-28">
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-4xl font-bold text-gray-900">Espace Démonstration</h1>
+                    <button onClick={handleLogout} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2">
+                        <LogOut className="w-4 h-4" />
+                        <span>Déconnexion</span>
+                    </button>
+                </div>
+                
+                <div className="bg-gray-50 rounded-2xl p-8 shadow-xl">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Générateur de plan stratégique IA</h2>
+                    <p className="text-gray-600 mb-6">
+                        Décrivez-nous votre problématique métier et nous vous générerons un plan d'action en quelques secondes.
+                    </p>
+                    <form onSubmit={handleGeneratePlan} className="flex gap-4 mb-8">
+                        <input
+                            type="text"
+                            value={userObjective}
+                            onChange={(e) => setUserObjective(e.target.value)}
+                            placeholder="Exemple : 'Comment automatiser la saisie de mes factures ?'"
+                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                            disabled={isGenerating}
+                            required
+                        />
+                        <button
+                            type="submit"
+                            disabled={isGenerating}
+                            className="bg-teal-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isGenerating ? 'Génération...' : 'Générer le plan'}
+                        </button>
+                    </form>
+                    
+                    {generatedPlan && (
+                        <div className="bg-white p-6 rounded-lg border prose max-w-none">
+                            <ReactMarkdown>
+                                {generatedPlan}
+                            </ReactMarkdown>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </>
+    );
+};
+
+export default ProspectDemoPage;

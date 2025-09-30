@@ -1,0 +1,325 @@
+import React, { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  ShoppingCart, 
+  DollarSign, 
+  Target, 
+  Calendar, 
+  Cloud, 
+  Sun, 
+  CloudRain, 
+  Snowflake, 
+  Thermometer,
+  BarChart3, 
+  Brain, 
+  Zap, 
+  ArrowRight, 
+  Mail, 
+  Building, 
+  User, 
+  MessageSquare,
+  LucideIcon
+} from 'lucide-react';
+
+// --- PALETTE DE COULEURS ELSYVIA (inchangée) ---
+const elsyviaTheme = {
+  primary: { DEFAULT: '#1E3A8A', light: '#3B82F6', lighter: '#EFF6FF' },
+  secondary: { DEFAULT: '#10B981', light: '#D1FAE5' },
+  neutral: { text: '#1F2937', textLight: '#4B5563', border: '#E5E7EB', bg: '#F9FAFB' }
+};
+
+// --- TYPES (inchangés) ---
+interface KpiData {
+  title: string;
+  value: string;
+  change: string;
+  trend: 'up' | 'down';
+  icon: LucideIcon;
+  subtitle: string;
+}
+interface ChartDataPoint { name: string; historique: number | null; projection: number | null; }
+interface FilterOption { value: string; label: string; icon?: LucideIcon; }
+type PeriodType = 'semaine' | 'mois' | 'trimestre';
+type WeatherType = 'ensoleille' | 'variable' | 'pluvieux' | 'neige' | 'canicule';
+type EventType = 'aucun' | 'vacances' | 'competition' | 'soldes';
+type CategoryType = 'tous' | 'running' | 'natation' | 'fitness' | 'randonnee';
+
+// --- DONNÉES INITIALES POUR LES KPIs ---
+const initialKpis: KpiData[] = [
+  { title: 'Chiffre d\'Affaires', value: '125 450 €', change: '+8%', trend: 'up', icon: DollarSign, subtitle: 'Mois en cours' },
+  { title: 'Marge Brute', value: '48 200 €', change: '38,4%', trend: 'up', icon: TrendingUp, subtitle: 'Rentabilité' },
+  { title: 'Panier Moyen', value: '87,50 €', change: '+2,3%', trend: 'up', icon: ShoppingCart, subtitle: 'Par transaction' },
+  { title: 'Taux de Conversion', value: '2,1%', change: '+0,3%', trend: 'up', icon: Target, subtitle: 'Visiteurs → Clients' }
+];
+
+// --- COMPOSANT POUR UN CHAMP ÉDITABLE ---
+const EditableField: React.FC<{
+  initialValue: string;
+  onSave: (newValue: string) => void;
+  className?: string;
+}> = ({ initialValue, onSave, className }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(initialValue);
+
+  const handleSave = () => {
+    onSave(value);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleSave();
+    else if (e.key === 'Escape') setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={handleKeyDown}
+        className={`bg-white border border-blue-500 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-300 w-full ${className}`}
+        autoFocus
+      />
+    );
+  }
+
+  return (
+    <div
+      onClick={() => setIsEditing(true)}
+      className={`cursor-pointer hover:bg-gray-100/80 p-1 -m-1 rounded-md transition-colors duration-200 ${className}`}
+    >
+      {initialValue}
+    </div>
+  );
+};
+
+
+const DashboardSimulation: React.FC = () => {
+  // --- Utilisation de useState pour les données KPI ---
+  const [kpiData, setKpiData] = useState<KpiData[]>(initialKpis);
+
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('mois');
+  const [selectedWeather, setSelectedWeather] = useState<WeatherType>('ensoleille');
+  const [selectedEvent, setSelectedEvent] = useState<EventType>('aucun');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType>('tous');
+  const [showContactForm, setShowContactForm] = useState<boolean>(false);
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [aiAnalysis, setAiAnalysis] = useState<string>('');
+  
+  // --- Fonction pour mettre à jour une donnée KPI ---
+  const handleKpiUpdate = (kpiIndex: number, field: keyof KpiData, newValue: string) => {
+    const newKpiData = [...kpiData];
+    // @ts-ignore
+    newKpiData[kpiIndex][field] = newValue;
+    setKpiData(newKpiData);
+  };
+
+  // Options de filtres
+  const periodOptions: FilterOption[] = [ { value: 'semaine', label: 'Semaine prochaine', icon: Calendar }, { value: 'mois', label: 'Mois prochain', icon: Calendar }, { value: 'trimestre', label: 'Prochain trimestre', icon: Calendar }];
+  const weatherOptions: FilterOption[] = [ { value: 'ensoleille', label: '☀️ Ensoleillé', icon: Sun }, { value: 'variable', label: '🌦️ Variable', icon: Cloud }, { value: 'pluvieux', label: '🌧️ Pluvieux', icon: CloudRain }, { value: 'neige', label: '❄️ Neige', icon: Snowflake }, { value: 'canicule', label: '🔥 Canicule', icon: Thermometer }];
+  const eventOptions: FilterOption[] = [ { value: 'aucun', label: 'Aucun' }, { value: 'vacances', label: 'Vacances scolaires' }, { value: 'competition', label: 'Marathon de Paris' }, { value: 'soldes', label: 'Soldes' }];
+  const categoryOptions: FilterOption[] = [ { value: 'tous', label: 'Tous' }, { value: 'running', label: 'Running' }, { value: 'natation', label: 'Natation' }, { value: 'fitness', label: 'Fitness' }, { value: 'randonnee', label: 'Randonnée' }];
+
+  // Logique de génération des données
+  const generateChartData = (): ChartDataPoint[] => {
+    const baseData: ChartDataPoint[] = [ { name: 'J-30', historique: 45000, projection: null }, { name: 'J-25', historique: 47000, projection: null }, { name: 'J-20', historique: 46500, projection: null }, { name: 'J-15', historique: 49000, projection: null }, { name: 'J-10', historique: 48500, projection: null }, { name: 'J-5', historique: 51000, projection: null }, { name: 'Aujourd\'hui', historique: 52000, projection: 52000 }];
+    let multiplier = 1;
+    if (selectedWeather === 'ensoleille') multiplier += 0.15; if (selectedWeather === 'canicule') multiplier += 0.25; if (selectedWeather === 'pluvieux') multiplier -= 0.10; if (selectedEvent === 'vacances') multiplier += 0.12; if (selectedEvent === 'competition') multiplier += 0.08; if (selectedEvent === 'soldes') multiplier += 0.30;
+    const projectionData: ChartDataPoint[] = selectedPeriod === 'semaine' ? [{ name: 'J+1', historique: null, projection: Math.round(52000 * multiplier) }, { name: 'J+3', historique: null, projection: Math.round(53000 * multiplier) }, { name: 'J+7', historique: null, projection: Math.round(54500 * multiplier) }] : selectedPeriod === 'mois' ? [{ name: 'S+1', historique: null, projection: Math.round(210000 * multiplier) }, { name: 'S+2', historique: null, projection: Math.round(220000 * multiplier) }, { name: 'S+3', historique: null, projection: Math.round(225000 * multiplier) }, { name: 'S+4', historique: null, projection: Math.round(235000 * multiplier) }] : [{ name: 'M+1', historique: null, projection: Math.round(850000 * multiplier) }, { name: 'M+2', historique: null, projection: Math.round(920000 * multiplier) }, { name: 'M+3', historique: null, projection: Math.round(980000 * multiplier) }];
+    return [...baseData, ...projectionData];
+  };
+  const generateAiAnalysis = (): string => {
+    const weatherTexts: Record<WeatherType, string> = { 'ensoleille': 'une météo ensoleillée favorise les activités outdoor (+15% Randonnée, +20% Natation)', 'variable': 'une météo variable maintient un équilibre entre indoor/outdoor', 'pluvieux': 'une météo pluvieuse oriente vers l\'indoor (+25% Fitness, +18% Tapis de course)', 'neige': 'des conditions hivernales dopent les sports d\'hiver (+40% Ski, +15% Vêtements chauds)', 'canicule': 'la canicule booste la demande de rafraîchissement (+35% Natation, +50% Gourdes)' };
+    const eventTexts: Record<EventType, string> = { 'aucun': '', 'vacances': ' Les vacances scolaires augmentent la fréquentation familiale (+22% sur tous segments).', 'competition': ' L\'événement sportif local génère une demande spécialisée (+15% équipements spécifiques).', 'soldes': ' La période de soldes stimule fortement les achats (+30% volume global).' };
+    const categoryTexts: Record<CategoryType, string> = { 'tous': 'toutes catégories confondues', 'running': 'spécifiquement sur la catégorie Running', 'natation': 'concentrée sur la Natation', 'fitness': 'orientée Fitness & Musculation', 'randonnee': 'focalisée sur la Randonnée' };
+    const period = selectedPeriod === 'semaine' ? 'la semaine prochaine' : selectedPeriod === 'mois' ? 'le mois prochain' : 'le prochain trimestre';
+    return `🧠 Analyse IA : Pour ${period}, la prévision indique ${weatherTexts[selectedWeather]} ${categoryTexts[selectedCategory]}.${eventTexts[selectedEvent]} Notre algorithme recommande d'ajuster les stocks et d'adapter la communication marketing.`;
+  };
+
+  useEffect(() => {
+    setChartData(generateChartData());
+    setAiAnalysis(generateAiAnalysis());
+  }, [selectedPeriod, selectedWeather, selectedEvent, selectedCategory]);
+  
+  const KpiCard: React.FC<{ kpi: KpiData; index: number; onUpdate: (index: number, field: keyof KpiData, value: string) => void }> = ({ kpi, index, onUpdate }) => {
+    const Icon = kpi.icon;
+    const trendColor = kpi.trend === 'up' ? 'text-emerald-500' : 'text-red-500';
+
+    return (
+      <div className="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 border border-gray-200/80">
+        <div className="flex items-start justify-between mb-3">
+          <div className={`p-2.5 bg-blue-50 rounded-lg`}>
+            <Icon className="w-6 h-6 text-blue-900" />
+          </div>
+          <div className={`flex items-center space-x-1.5 ${trendColor}`}>
+            {kpi.trend === 'up' ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+            <EditableField initialValue={kpi.change} onSave={(newValue) => onUpdate(index, 'change', newValue)} className="text-sm font-semibold"/>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 uppercase tracking-wider">{kpi.title}</p>
+        <EditableField initialValue={kpi.value} onSave={(newValue) => onUpdate(index, 'value', newValue)} className="text-2xl font-bold text-gray-800 my-1"/>
+        <p className="text-sm text-gray-500">{kpi.subtitle}</p>
+      </div>
+    );
+  };
+
+  const ContactForm: React.FC = () => {
+    const [formData, setFormData] = useState({ name: '', email: '', company: '', needs: '' });
+    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); console.log('Form submitted:', formData); setShowContactForm(false); };
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
+    return (
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div className="bg-white p-8 rounded-lg max-w-lg w-full shadow-2xl">
+          <h3 className="text-2xl font-bold text-gray-800 mb-6">Demander une démo personnalisée</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {[ { label: 'Nom complet', name: 'name', type: 'text', placeholder: 'Votre nom', icon: User }, { label: 'Email professionnel', name: 'email', type: 'email', placeholder: 'votre@email.com', icon: Mail }, { label: 'Entreprise', name: 'company', type: 'text', placeholder: 'Nom de votre entreprise', icon: Building }, ].map(f => (
+              <div key={f.name}>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">{f.label}</label>
+                <div className="relative">
+                  <f.icon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input type={f.type} name={f.name} value={(formData as any)[f.name]} onChange={handleInputChange} className="pl-10 w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" placeholder={f.placeholder} required />
+                </div>
+              </div>
+            ))}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Vos besoins (optionnel)</label>
+              <div className="relative">
+                <MessageSquare className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" />
+                <textarea name="needs" value={formData.needs} onChange={handleInputChange} className="pl-10 w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition h-24 resize-none" placeholder="Décrivez vos principaux défis..." />
+              </div>
+            </div>
+            <div className="flex space-x-3 pt-4">
+              <button type="button" onClick={() => setShowContactForm(false)} className="flex-1 px-6 py-2.5 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors">Annuler</button>
+              <button type="submit" className="flex-1 px-6 py-2.5 bg-blue-900 text-white rounded-md hover:bg-blue-800 transition-colors">Envoyer la demande</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const FilterButton: React.FC<{ option: FilterOption; isSelected: boolean; onClick: () => void; }> = ({ option, isSelected, onClick }) => {
+    const Icon = option.icon;
+    return (
+      <button onClick={onClick} className={`w-full p-2 rounded-md border transition-all duration-200 flex items-center justify-center text-sm space-x-2 ${ isSelected ? 'bg-blue-50 border-blue-500 text-blue-900 font-semibold' : 'bg-white border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-900' }`}>
+        {Icon && <Icon className="w-4 h-4" />}
+        <span>{option.label}</span>
+      </button>
+    );
+  };
+
+  return (
+    <div className={`min-h-screen bg-gray-50 text-gray-800 pt-24`}>
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="text-center">
+            <div className="inline-block bg-blue-50 p-4 rounded-xl mb-4">
+                <Brain className="w-10 h-10 text-blue-900" />
+            </div>
+            <h1 className="text-4xl md:text-5xl font-extrabold text-blue-900 mb-3">
+              Le futur de votre PME se pilote ici
+            </h1>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              Simulez l'impact de vos décisions avec le Dashboard Prédictif d'Elsyvia. Ajustez les paramètres ci-dessous et visualisez comment nos algorithmes transforment vos données en avantage concurrentiel.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        
+        <section className="mb-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {kpiData.map((kpi, index) => (
+              <KpiCard key={index} kpi={kpi} index={index} onUpdate={handleKpiUpdate} />
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-12">
+          <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md border border-gray-200/80">
+            <div className="flex items-center mb-6">
+              <BarChart3 className="w-8 h-8 text-blue-900 mr-3" />
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Moteur de Projections IA</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4 mb-8 p-4 bg-gray-50 rounded-lg border">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">Période</label>
+                <div className="space-y-2">
+                  {periodOptions.map(o => <FilterButton key={o.value} option={o} isSelected={selectedPeriod === o.value} onClick={() => setSelectedPeriod(o.value as PeriodType)} />)}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">Météo</label>
+                <div className="space-y-2">
+                  {weatherOptions.map(o => <FilterButton key={o.value} option={o} isSelected={selectedWeather === o.value} onClick={() => setSelectedWeather(o.value as WeatherType)} />)}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">Événements</label>
+                <div className="space-y-2">
+                  {eventOptions.map(o => <FilterButton key={o.value} option={o} isSelected={selectedEvent === o.value} onClick={() => setSelectedEvent(o.value as EventType)} />)}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wider">Catégorie</label>
+                <div className="space-y-2">
+                  {categoryOptions.map(o => <FilterButton key={o.value} option={o} isSelected={selectedCategory === o.value} onClick={() => setSelectedCategory(o.value as CategoryType)} />)}
+                </div>
+              </div>
+            </div>
+
+            <div className="h-80 mb-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={elsyviaTheme.neutral.border} />
+                  <XAxis dataKey="name" stroke={elsyviaTheme.neutral.textLight} fontSize={12} />
+                  <YAxis stroke={elsyviaTheme.neutral.textLight} fontSize={12} tickFormatter={(value: number) => `${value/1000}k€`} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '0.5rem', borderColor: elsyviaTheme.neutral.border }}
+                    formatter={(value: number | null, name: string) => [value ? `${value.toLocaleString('fr-FR')} €` : null, name === 'historique' ? 'Ventes passées' : 'Projection IA']}
+                  />
+                  <Line type="monotone" dataKey="historique" stroke="#9ca3af" strokeWidth={2} dot={{ r: 4 }} name="historique" />
+                  <Line type="monotone" dataKey="projection" stroke={elsyviaTheme.primary.light} strokeWidth={3} strokeDasharray="5 5" dot={{ fill: elsyviaTheme.primary.light, r: 6 }} name="projection" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-blue-50 p-5 rounded-lg border-l-4 border-blue-500">
+              <p className="text-blue-900 leading-relaxed">{aiAnalysis}</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div className="bg-blue-900 p-10 rounded-lg text-white text-center">
+            <div className="max-w-4xl mx-auto">
+              <Zap className="w-12 h-12 mx-auto mb-4 text-emerald-400" />
+              <h2 className="text-3xl font-bold mb-4">Passez de la simulation à l'action.</h2>
+              <p className="text-blue-200 mb-8 leading-relaxed">
+                Le dashboard Elsyvia, connecté à vos données en temps réel, peut transformer la gestion de votre PME et décupler votre performance. Prêt à voir ce que l'IA peut faire pour vous ?
+              </p>
+              <button 
+                onClick={() => setShowContactForm(true)}
+                className="inline-flex items-center justify-center space-x-2 bg-white text-blue-900 px-8 py-3 rounded-md font-semibold hover:bg-gray-200 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
+                <Calendar className="w-5 h-5" />
+                <span>Demander une démo personnalisée</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {showContactForm && <ContactForm />}
+    </div>
+  );
+};
+
+export default DashboardSimulation;

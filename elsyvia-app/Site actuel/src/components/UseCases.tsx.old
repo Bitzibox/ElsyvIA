@@ -1,0 +1,95 @@
+import React from 'react';
+import { FileText, MessageSquare, Calendar, BarChart3 } from 'lucide-react';
+
+const UseCases = () => {
+  const useCases = [
+    {
+      icon: FileText,
+      title: 'Automatisation administrative',
+      problem: 'Tâches répétitives chronophages',
+      solution: 'Automatisation intelligente des processus',
+      result: '70% de temps économisé sur les tâches administratives',
+      example: 'Traitement automatique des demandes, génération de documents, classification intelligente'
+    },
+    {
+      icon: BarChart3,
+      title: 'Génération de rapports',
+      problem: 'Création manuelle de rapports complexes',
+      solution: 'IA générative pour l\'analyse et la synthèse',
+      result: 'Rapports générés en minutes au lieu d\'heures',
+      example: 'Analyse automatique des données, synthèses intelligentes, visualisations dynamiques'
+    },
+    {
+      icon: MessageSquare,
+      title: 'Support client automatisé',
+      problem: 'Gestion du volume croissant de demandes',
+      solution: 'Chatbot intelligent multicanal',
+      result: '85% de résolution automatique niveau 1',
+      example: 'Réponses contextuelles, escalade intelligente, disponibilité 24/7'
+    },
+    {
+      icon: Calendar,
+      title: 'Optimisation de planning',
+      problem: 'Gestion complexe des ressources et calendriers',
+      solution: 'Algorithmes d\'optimisation intelligente',
+      result: '40% d\'amélioration de l\'efficacité',
+      example: 'Planification automatique, gestion des contraintes, optimisation des ressources'
+    }
+  ];
+
+  return (
+    <section id="usecases" className="py-20 bg-white">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            Cas d'<span className="gradient-text">usage</span> concrets
+          </h2>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Découvrez comment l'IA transforme concrètement le quotidien
+            de nos clients à travers des exemples réels et mesurables.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-8">
+          {useCases.map((useCase, index) => {
+            const IconComponent = useCase.icon;
+            return (
+              <div key={index} className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl p-8 card-hover">
+                <div className="flex items-start space-x-4 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-teal-500 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <IconComponent className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900">{useCase.title}</h3>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded">
+                    <p className="text-sm font-medium text-red-800 mb-1">Problématique</p>
+                    <p className="text-red-700">{useCase.problem}</p>
+                  </div>
+
+                  <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                    <p className="text-sm font-medium text-blue-800 mb-1">Solution IA</p>
+                    <p className="text-blue-700">{useCase.solution}</p>
+                  </div>
+
+                  <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded">
+                    <p className="text-sm font-medium text-green-800 mb-1">Résultat</p>
+                    <p className="text-green-700 font-semibold">{useCase.result}</p>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Exemple concret</p>
+                    <p className="text-gray-600 text-sm">{useCase.example}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default UseCases;
