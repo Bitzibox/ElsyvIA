@@ -1,0 +1,747 @@
+import React, { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
+// ✅ NOUVEAUTÉ : Ajout de l'icône 'Search' pour l'auditeur
+import { LogOut, Download, FileText, Search } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import axios from 'axios';
+import config from '/src/config';
+
+const CORRECT_TOKEN = 'Elsyv1Acgenial2025!';
+
+const ProspectDemoPage: React.FC = () => {
+    const [token, setToken] = useState('');
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [loginError, setLoginError] = useState('');
+    
+    const [userObjective, setUserObjective] = useState('');
+    // ✅ NOUVEAUTÉ : État pour l'URL du site à auditer
+    const [websiteUrl, setWebsiteUrl] = useState('');
+    const [generatedPlan, setGeneratedPlan] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+
+    useEffect(() => {
+        const storedToken = sessionStorage.getItem('elsyvia_demo_token');
+        if (storedToken === CORRECT_TOKEN) {
+            setToken(storedToken);
+            setIsLoggedIn(true);
+        }
+    }, []);
+
+    const handleLogin = (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoginError('');
+        if (token === CORRECT_TOKEN) {
+            sessionStorage.setItem('elsyvia_demo_token', token);
+            setIsLoggedIn(true);
+        } else {
+            setLoginError('Jeton d\'accès incorrect.');
+        }
+    };
+
+    const handleLogout = () => {
+        sessionStorage.removeItem('elsyvia_demo_token');
+        setIsLoggedIn(false);
+        setToken('');
+    };
+
+    const callGeminiAPI = async (prompt: string) => {
+        try {
+            const GEMINI_API_KEY = config.geminiApiKey;
+            
+            if (!GEMINI_API_KEY || GEMINI_API_KEY === 'VOTRE_CLE_API_ICI') {
+                throw new Error('Configuration API manquante');
+            }
+
+            // ... (Le reste de la fonction callGeminiAPI reste INCHANGÉ)
+            const contents = [
+                {
+                    role: 'user',
+                    parts: [{
+                        text: `CONTEXTE STRICT:
+Tu es Elsy, consultante IA spécialisée EXCLUSIVEMENT dans les solutions business pour Elsyvia.
+
+RÈGLES ABSOLUES:
+- Tu NE réponds QU'aux questions liées à l'entreprise, l'automatisation, l'IA business, les processus métier
+- Si la question n'est PAS business : refuse poliment et redirige vers des sujets business
+- Domaines ACCEPTÉS: chatbots, automatisation, CRM, workflows, processus, digital, e-commerce, gestion
+- Domaines REFUSÉS: culture générale, géographie, histoire, science, divertissement, questions personnelles
+
+RÉPONSE DE REFUS (si hors-sujet):
+"Je suis spécialisée uniquement dans les solutions IA pour entreprises. Pouvez-vous reformuler votre question en lien avec l'automatisation, les chatbots, ou l'optimisation de processus métier ?"
+
+STYLE ET FORMAT (si question business valide):
+- STRUCTURE tes réponses avec des paragraphes espacés pour une lisibilité maximale.
+- Utilise UNIQUEMENT la syntaxe Markdown : **gras**, titres avec #, listes avec -.
+- Commence par un titre **Plan d'action ElsyvIA**.
+- Rédige une phrase d'introduction qui reformule le problème.
+- Propose un plan en 3 étapes concrètes avec titres en gras.
+- Utilise des puces (-) pour lister les points.
+- Termine par une phrase sur la valeur ajoutée d'Elsyvia.
+- Sois concis et efficace dans tes réponses.
+
+PROBLÉMATIQUE À TRAITER:
+${prompt}
+
+IMPORTANT: Vérifie d'abord si cette question est liée au BUSINESS/ENTREPRISE. Si NON, utilise la réponse de refus.`
+                    }]
+                },
+                {
+                    role: 'model',
+                    parts: [{ text: 'Entendu. Je suis prête à générer un plan d\'action stratégique adapté avec un formatage optimal.' }]
+                },
+                {
+                    role: 'user',
+                    parts: [{ text: `Génère maintenant le plan d'action pour: ${prompt}` }]
+                }
+            ];
+
+            console.log('🔍 Envoi vers Gemini API...');
+
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contents: contents,
+                        generationConfig: {
+                            temperature: 0.7,
+                            topK: 40,
+                            topP: 0.95,
+                            maxOutputTokens: 1024
+                        }
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.text();
+                console.error('❌ Erreur API Gemini:', response.status, errorData);
+                
+                if (response.status === 400) {
+                    throw new Error('Format de requête invalide');
+                } else if (response.status === 403) {
+                    throw new Error('Clé API invalide ou quota dépassé');
+                } else if (response.status === 429) {
+                    throw new Error('Limite de taux atteinte');
+                }
+                
+                throw new Error(`Erreur API: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('✅ Réponse reçue de l\'API');
+
+            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                // Nettoyage automatique du contenu pour supprimer les balises HTML indésirables
+                let cleanedText = data.candidates[0].content.parts[0].text;
+                cleanedText = cleanedText.replace(/<br\s*\/?>/gi, '\n\n'); // Remplace <br> par des sauts de ligne
+                cleanedText = cleanedText.replace(/<p>/gi, '\n\n'); // Remplace <p> par des sauts de ligne
+                cleanedText = cleanedText.replace(/<\/p>/gi, ''); // Supprime </p>
+                cleanedText = cleanedText.replace(/<div>/gi, '\n\n'); // Remplace <div> par des sauts de ligne
+                cleanedText = cleanedText.replace(/<\/div>/gi, ''); // Supprime </div>
+                return cleanedText;
+            } else {
+                console.error('❌ Structure de réponse inattendue:', data);
+                throw new Error('Réponse invalide de l\'API');
+            }
+
+        } catch (error) {
+            console.error('❌ Erreur lors de l\'appel à Gemini:', error);
+            throw error;
+        }
+    };
+    
+    // ... (La fonction 'validateBusinessQuery' reste INCHANGÉE)
+    const validateBusinessQuery = (query: string): boolean => {
+        const forbiddenKeywords = [
+            'tour eiffel', 'hauteur', 'météo', 'recette', 'histoire', 'géographie',
+            'mathématiques', 'culture générale', 'définition', 'qu\'est-ce que',
+            'comment faire', 'capital', 'ville', 'pays', 'personnalité', 'célébrité',
+            'sport', 'musique', 'film', 'livre', 'jeu', 'divertissement'
+        ];
+        
+        const businessKeywords = [
+            'chatbot', 'automatisation', 'ia', 'intelligence artificielle', 'workflow',
+            'processus', 'digital', 'entreprise', 'business', 'client', 'vente',
+            'marketing', 'gestion', 'optimisation', 'crm', 'erp', 'site web',
+            'e-commerce', 'application', 'logiciel', 'système', 'données',
+            'analyse', 'reporting', 'facture', 'devis', 'comptabilité'
+        ];
+        
+        const queryLower = query.toLowerCase();
+        
+        // Vérifier les mots interdits
+        const hasForbiddenWords = forbiddenKeywords.some(word => 
+            queryLower.includes(word)
+        );
+        
+        // Vérifier la présence de mots business (au moins un)
+        const hasBusinessWords = businessKeywords.some(word => 
+            queryLower.includes(word)
+        );
+        
+        return !hasForbiddenWords && (hasBusinessWords || queryLower.length > 50);
+    };
+
+    // La fonction 'generatePlanFromPrompt' reste presque identique, nous l'utiliserons
+    const generatePlanFromPrompt = async (prompt: string, objective: string) => {
+        if (isGenerating || !prompt.trim()) return;
+
+        // On ne valide que les requêtes du générateur de plan, pas l'audit
+        if (objective.startsWith("Créer") && !validateBusinessQuery(prompt)) {
+            setGeneratedPlan(`# 🚫 Requête Non Éligible ... `); // Contenu du message d'erreur inchangé
+            return;
+        }
+
+        setIsGenerating(true);
+        setGeneratedPlan('');
+        setUserObjective(objective); // Met à jour le champ de saisie avec l'objectif réel
+        
+        try {
+            console.log('🚀 Lancement de la génération pour:', objective);
+            const botResponse = await callGeminiAPI(prompt.trim());
+            setGeneratedPlan(botResponse);
+            console.log('✅ Tâche terminée avec succès');
+
+        } catch (error) {
+             console.error("❌ Erreur lors de la génération :", error);
+            // ... (La gestion d'erreur reste INCHANGÉE)
+             let errorMessage = "Une erreur technique est survenue.";
+            
+            if (error instanceof Error) {
+                if (error.message.includes('Configuration API manquante')) {
+                    errorMessage = "Configuration API manquante.\n\nVeuillez contacter l'administrateur.";
+                } else if (error.message.includes('400')) {
+                    errorMessage = "Format de requête invalide.";
+                } else if (error.message.includes('403')) {
+                    errorMessage = "Problème d'authentification API.\n\nVérifiez votre configuration.";
+                } else if (error.message.includes('429')) {
+                    errorMessage = "Limite de requêtes atteinte.\n\nVeuillez patienter un moment.";
+                } else if (error.message.includes('Failed to fetch')) {
+                    errorMessage = "Problème de connexion réseau.";
+                }
+            }
+            
+            setGeneratedPlan(`# ❌ Erreur Technique ...`);// Contenu du message d'erreur inchangé
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+    
+    // ✅ NOUVEAUTÉ : Fonction pour lancer l'audit du site web
+    const handleAuditWebsite = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!websiteUrl) return;
+
+        // Validation simple de l'URL côté client
+        let urlToAudit = websiteUrl;
+        if (!urlToAudit.startsWith('http://') && !urlToAudit.startsWith('https://')) {
+            urlToAudit = 'https://' + urlToAudit;
+        }
+
+        try {
+            new URL(urlToAudit);
+        } catch (_) {
+            setGeneratedPlan(`# 🚫 URL Invalide\n\nVeuillez fournir une adresse web valide, par exemple : \`www.mon-site.com\`.`);
+            return;
+        }
+
+        const auditPrompt = `
+CONTEXTE STRICT:
+Tu es Elsy, consultante IA pour Elsyvia. Tu réalises un audit "flash" SIMULÉ du site web d'un prospect. L'objectif est de produire un rapport très lisible, aéré et percutant.
+
+RÈGLES ABSOLUES:
+- L'URL du prospect est : ${urlToAudit}.
+- Tu ne visites PAS l'URL. Ton analyse est une simulation basée sur des schémas courants de sites business.
+- Le ton doit être professionnel et orienté "solutions".
+- Utilise la syntaxe Markdown et respecte SCRUPULEUSEMENT le format ci-dessous.
+
+FORMAT OBLIGATOIRE DE L'AUDIT:
+1. Titre H1 : # ✨ Audit Flash IA pour ${websiteUrl}
+2. Introduction courte
+3. Titre H2 : ## 💡 Observations & Opportunités  
+4. 3 points d'analyse avec cette structure :
+   - Titre en gras avec icône
+   - **Observation :** description concise
+   - **Solution Elsyvia :** bénéfice en 1-2 phrases
+5. Séparateur : ---
+6. Titre H2 : ## 🚀 Prochaine Étape
+7. Conclusion courte
+
+PROBLÉMATIQUE À TRAITER:
+Génère maintenant l'audit flash SIMULÉ pour le site ${urlToAudit} en appliquant ce format à la lettre.
+`;
+        // On utilise la fonction générique de génération
+        await generatePlanFromPrompt(auditPrompt, `Audit du site : ${websiteUrl}`);
+    };
+
+    const handleGeneratePlan = async (e: React.FormEvent) => {
+        e.preventDefault();
+        await generatePlanFromPrompt(userObjective, userObjective);
+    };
+
+    const handleSuggestionClick = async (suggestion: string) => {
+        if (isGenerating) return;
+        setUserObjective(suggestion); // Pré-remplit le champ pour la cohérence visuelle
+        await generatePlanFromPrompt(suggestion, suggestion);
+    };
+    
+    // ... (La fonction 'exportToHtml' reste INCHANGÉE)
+const exportToHtml = () => {
+    if (!generatedPlan) return;
+    
+    setIsExporting(true);
+    
+    try {
+        // Conversion du Markdown en HTML
+        let htmlContent = generatedPlan
+            // ✅ CORRECTION : La regex est maintenant plus stricte pour cibler UNIQUEMENT la solution.
+            .replace(/(\*\*Solution Elsyvia :\*\*[\s\S]*?)(?=\n\n\*\*|\n---|$)/g, (match) => {
+                // On enveloppe la correspondance trouvée dans notre div stylisée.
+                return `<div class="solution">${match}</div>`;
+            })
+
+            // Conversion des titres
+            .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+            
+            // Conversion du texte en gras (y compris à l'intérieur de la div .solution)
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            
+            // Conversion des listes à puces
+            .replace(/^- (.*$)/gm, '<li>$1</li>')
+            
+            // Conversion des séparateurs
+            .replace(/^---$/gm, '<hr>')
+            
+            // Gestion des paragraphes et sauts de ligne
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>');
+
+        // Nettoyage et structuration des listes
+        htmlContent = htmlContent
+            .replace(/(<li>.*?<\/li>)/gs, '<ul>$1</ul>')
+            .replace(/<\/ul>\s*<ul>/g, '');
+
+        // Correction pour les balises <p> autour des éléments
+        htmlContent = htmlContent
+            .replace(/<p><(h[1-3]|ul|hr|div)>/g, '<$1>')
+            .replace(/<\/(h[1-3]|ul|hr|div)><\/p>/g, '</$1>');
+        
+        // Nettoyage final des sauts de ligne dans la div solution
+        htmlContent = htmlContent.replace(/(<div class="solution">)<br>/g, '$1');
+
+        // Ajout des balises <p> d'ouverture/fermeture si nécessaire
+        if (!htmlContent.startsWith('<') && htmlContent.trim() !== '') {
+            htmlContent = '<p>' + htmlContent + '</p>';
+        }
+
+        const fullHtmlContent = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapport ElsyvIA - ${new Date().toLocaleDateString('fr-FR')}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            color: #333;
+            background-color: #ffffff;
+        }
+        
+        h1 {
+            color: #1f2937;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 10px;
+            margin-top: 2rem;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+        
+        h2 {
+            color: #374151;
+            margin-top: 2.5rem;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            border-left: 4px solid #10b981;
+            padding-left: 15px;
+        }
+        
+        h3 {
+            color: #4b5563;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+        
+        p {
+            margin-bottom: 1.5rem;
+            text-align: justify;
+        }
+        
+        ul {
+            margin-bottom: 1.5rem;
+            padding-left: 2rem;
+        }
+        
+        li {
+            margin-bottom: 0.75rem;
+            line-height: 1.7;
+        }
+        
+        strong {
+            color: #1f2937;
+            font-weight: 600;
+        }
+
+        /* Style pour mettre en évidence la solution */
+        .solution {
+            background-color: #eff6ff; /* Fond bleu très clair */
+            border-left: 5px solid #3b82f6; /* Bordure bleue prononcée */
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .solution strong {
+            color: #1e40af; /* Titre en bleu plus foncé */
+            display: block;
+            margin-bottom: 0.75rem;
+        }
+        
+        /* On s'assure que le premier <p> dans la solution n'a pas de marge supérieure */
+        .solution p:first-child {
+            margin-top: 0;
+        }
+
+        /* On s'assure que le dernier <p> dans la solution n'a pas de marge inférieure */
+        .solution p:last-child {
+            margin-bottom: 0;
+        }
+
+        hr {
+            margin: 2.5rem 0;
+            border: none;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .footer {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #3b82f6;
+            margin-bottom: 0.5rem;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">ElsyvIA</div>
+        <p>Rapport généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
+    </div>
+    
+    <div class="content">
+        ${htmlContent}
+    </div>
+    
+    <div class="footer">
+        <p><strong>ElsyvIA</strong> - Solutions IA pour entreprises<br>
+        Ce rapport a été généré automatiquement par notre assistant IA.</p>
+    </div>
+</body>
+</html>`;
+
+        // Création et téléchargement du fichier
+        const blob = new Blob([fullHtmlContent], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        const isAudit = generatedPlan.includes('Audit Flash') || userObjective.toLowerCase().includes('audit');
+        const fileName = isAudit 
+            ? `Audit_Flash_IA_${new Date().toISOString().split('T')[0]}.html`
+            : `Plan_Strategique_IA_${new Date().toISOString().split('T')[0]}.html`;
+            
+        a.download = fileName;
+        a.style.display = 'none';
+        
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        console.log('✅ Export HTML réalisé avec succès');
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'export HTML:', error);
+        alert('Une erreur est survenue lors de l\'export. Veuillez réessayer.');
+    } finally {
+        setIsExporting(false);
+    }
+};
+    if (!isLoggedIn) {
+        // ... (Le JSX du formulaire de login reste INCHANGÉ)
+        return (
+            <>
+                <Helmet>
+                    <title>Accès Démo | ElsyvIA</title>
+                    <meta name="robots" content="noindex, nofollow" />
+                </Helmet>
+                <div className="min-h-screen flex items-center justify-center bg-gray-100 pt-20">
+                    ...
+                </div>
+            </>
+        );
+    }
+    
+    return (
+        <>
+            <Helmet>
+                <title>Démonstration | ElsyvIA</title>
+                <meta name="robots" content="noindex, nofollow" />
+            </Helmet>
+            
+            {/* ... (Les balises <style> restent INCHANGÉES) ... */}
+            
+            <div className="container mx-auto px-4 py-12 pt-28">
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-4xl font-bold text-gray-900">Espace Démonstration</h1>
+                    <button onClick={handleLogout} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2">
+                        <LogOut className="w-4 h-4" />
+                        <span>Déconnexion</span>
+                    </button>
+                </div>
+                
+                <div className="space-y-10">
+                    {/* ✅ NOUVEAUTÉ : Section de l'Auditeur de Site Web */}
+                    <div className="bg-gray-50 rounded-2xl p-8 shadow-xl">
+                        <div className="flex items-center gap-3 mb-4">
+                            <Search className="w-8 h-8 text-indigo-600" />
+                            <h2 className="text-2xl font-bold text-gray-900">🔎 Auditeur de Site Web Instantané</h2>
+                        </div>
+                        <p className="text-gray-600 mb-6">
+                            Entrez l'URL de votre site pour obtenir un audit "flash" et découvrir des opportunités d'automatisation grâce à l'IA.
+                        </p>
+                        <form onSubmit={handleAuditWebsite} className="flex gap-4">
+                            <input
+                                type="text"
+                                value={websiteUrl}
+                                onChange={(e) => setWebsiteUrl(e.target.value)}
+                                placeholder="Exemple : www.mon-entreprise.com"
+                                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                disabled={isGenerating}
+                                required
+                            />
+                            <button
+                                type="submit"
+                                disabled={isGenerating || !websiteUrl.trim()}
+                                className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isGenerating ? (
+                                    <>
+                                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                                        Analyse...
+                                    </>
+                                ) : (
+                                    '🚀 Lancer l\'audit'
+                                )}
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Section existante du Générateur de Plan Stratégique */}
+                    <div className="bg-gray-50 rounded-2xl p-8 shadow-xl">
+                        <div className="flex items-center gap-3 mb-4">
+                            <FileText className="w-8 h-8 text-teal-600" />
+                            <h2 className="text-2xl font-bold text-gray-900">📝 Générateur de Plan Stratégique IA</h2>
+                        </div>
+                        <p className="text-gray-600 mb-4">
+                            Décrivez-nous votre problématique métier et obtenez instantanément un plan d'action personnalisé et détaillé.
+                        </p>
+                        
+                        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                            <p className="text-amber-800 text-sm">
+                                <strong>⚠️ Usage Strictement Professionnel :</strong> Cette IA est spécialisée uniquement dans les solutions business.
+                            </p>
+                        </div>
+                        
+                        <form onSubmit={handleGeneratePlan} className="flex gap-4 mb-8">
+                            <input
+                                type="text"
+                                value={userObjective}
+                                onChange={(e) => setUserObjective(e.target.value)}
+                                placeholder="Exemple : 'Comment créer un chatbot intelligent pour mon site e-commerce ?'"
+                                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                disabled={isGenerating}
+                            />
+                            <button
+                                type="submit"
+                                disabled={isGenerating || !userObjective.trim()}
+                                className="bg-teal-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isGenerating ? (
+                                    <>
+                                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                                        Génération...
+                                    </>
+                                ) : (
+                                    '✨ Générer le plan'
+                                )}
+                            </button>
+                        </form>
+                        
+                        <div className="mb-6">
+                            <p className="text-sm text-gray-500 mb-2">💡 Suggestions (cliquez pour générer automatiquement) :</p>
+                            <div className="flex flex-wrap gap-2">
+                                {[
+                                    "Créer un chatbot intelligent pour mon site e-commerce",
+                                    "Automatiser ma gestion des devis et factures", 
+                                    "Optimiser ma relation client avec l'IA conversationnelle",
+                                    "Mettre en place un système de recommandations produits",
+                                    "Automatiser le tri et traitement de mes emails clients",
+                                    "Créer un assistant IA pour ma comptabilité"
+                                ].map((suggestion, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => handleSuggestionClick(suggestion)}
+                                        className="suggestion-button text-xs bg-white border border-gray-300 px-3 py-1 rounded-full"
+                                        disabled={isGenerating}
+                                    >
+                                        {suggestion}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* ✅ NOUVEAUTÉ : Le conteneur de résultat est maintenant conditionné à la génération, peu importe la source */}
+                    {generatedPlan && (
+                        <div className="bg-white p-8 rounded-lg border shadow-sm animate-fade-in">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                                    <FileText className="w-6 h-6 text-teal-600" />
+                                    {/* Le titre du résultat est maintenant dynamique */}
+                                    Votre Résultat
+                                </h3>
+                                <button
+                                    onClick={exportToHtml}
+                                    disabled={isExporting || isGenerating}
+                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isExporting ? (
+                                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                                    ) : (
+                                        <Download className="w-4 h-4" />
+                                    )}
+                                    Exporter HTML
+                                </button>
+                            </div>
+                            <div className="border-t pt-6">
+                                <div className="demo-plan-content">
+                                    <ReactMarkdown>
+                                        {generatedPlan}
+                                    </ReactMarkdown>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+            
+            {/* ... (La balise <style> avec les animations reste INCHANGÉE) ... */}
+            
+            <style jsx>{`
+                .demo-plan-content {
+                    line-height: 1.8;
+                }
+                .demo-plan-content h1 {
+                    margin-top: 2rem;
+                    margin-bottom: 1.5rem;
+                    font-size: 1.875rem;
+                    font-weight: bold;
+                }
+                .demo-plan-content h2 {
+                    margin-top: 2.5rem;
+                    margin-bottom: 1.5rem;
+                    font-size: 1.5rem;
+                    font-weight: 600;
+                }
+                .demo-plan-content h3 {
+                    margin-top: 2rem;
+                    margin-bottom: 1rem;
+                    font-size: 1.25rem;
+                    font-weight: 600;
+                }
+                .demo-plan-content p {
+                    margin-bottom: 1.5rem;
+                    line-height: 1.8;
+                }
+                .demo-plan-content ul,
+                .demo-plan-content ol {
+                    margin-bottom: 1.5rem;
+                    padding-left: 1.5rem;
+                }
+                .demo-plan-content li {
+                    margin-bottom: 0.75rem;
+                    line-height: 1.7;
+                }
+                .demo-plan-content strong {
+                    font-weight: 600;
+                    margin-bottom: 0.5rem;
+                    display: inline-block;
+                }
+                .demo-plan-content hr {
+                    margin: 2.5rem 0;
+                    border-top: 2px solid #e5e7eb;
+                }
+                .animate-fade-in {
+                    animation: fadeIn 0.5s ease-in-out;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .suggestion-button:hover {
+                    background-color: #f3f4f6;
+                    border-color: #9ca3af;
+                }
+            `}</style>
+        </>
+    );
+};
+
+export default ProspectDemoPage;

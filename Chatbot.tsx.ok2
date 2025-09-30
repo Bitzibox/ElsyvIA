@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import chatbotIcon from './chatbot-icon.png';
-import { X, Send, User, Bot, Maximize2, Minimize2 } from 'lucide-react'; // Import des nouvelles icônes
+import { X, Send, User, Bot } from 'lucide-react';
 import config from '/src/config';
 
 // Structure de message simple pour l'affichage dans le frontend
@@ -22,16 +22,9 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen, initialMessage, cl
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false); // --- AJOUT : État pour gérer l'agrandissement
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const welcomeMessage = "Bonjour ! Je suis Elsy, votre assistante IA.\n\nComment puis-je vous aider aujourd'hui ?";
-
-  const predefinedQuestions = [
-    "Quels services proposez-vous ?",
-    "Comment puis-je vous contacter ?",
-    "Parlez-moi de vos solutions pour le secteur public",
-  ];
 
   // Utilisation de la configuration centralisée
   const GEMINI_API_KEY = config.geminiApiKey;
@@ -46,6 +39,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen, initialMessage, cl
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Nouvelle fonction pour gérer l'envoi d'un message et la réception d'une réponse
   const sendMessageAndGetResponse = async (prompt: string, currentHistory: Message[]) => {
     setIsLoading(true);
     try {
@@ -76,13 +70,14 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen, initialMessage, cl
     }
   };
 
+  // Effet pour gérer le message initial provenant de la page de l'assistant
   useEffect(() => {
     if (isOpen && initialMessage) {
       const userMessage: Message = { text: initialMessage, sender: 'user' };
       const newHistory = [...messages, userMessage];
       setMessages(newHistory);
       sendMessageAndGetResponse(initialMessage, newHistory);
-      clearInitialMessage();
+      clearInitialMessage(); // On nettoie le message initial pour qu'il ne soit pas renvoyé
     }
   }, [isOpen, initialMessage]);
 
@@ -136,67 +131,92 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen, initialMessage, cl
     setInput('');
     await sendMessageAndGetResponse(currentInput, newHistory);
   };
-  
-  const handlePredefinedQuestionClick = async (question: string) => {
-    if (isLoading) return;
-
-    const userMessage: Message = { text: question, sender: 'user' };
-    const newHistory = [...messages, userMessage];
-    setMessages(newHistory);
-    
-    await sendMessageAndGetResponse(question, newHistory);
-  };
 
   return (
     <>
+      {/* Styles CSS pour améliorer l'affichage Markdown */}
       <style>{`
-        .chatbot-message .prose { line-height: 1.5; font-size: 14px; color: inherit; }
-        .chatbot-message .prose p { margin-bottom: 0.75rem; }
-        .chatbot-message .prose p:last-child { margin-bottom: 0; }
-        .chatbot-message .prose strong { font-weight: 600; color: inherit; }
-        .chatbot-message .prose ul, .chatbot-message .prose ol { margin: 0.5rem 0; padding-left: 1.25rem; }
-        .chatbot-message .prose li { margin-bottom: 0.25rem; }
-        .chatbot-message .prose h1, .chatbot-message .prose h2, .chatbot-message .prose h3, .chatbot-message .prose h4, .chatbot-message .prose h5, .chatbot-message .prose h6 { margin-top: 0.5rem; margin-bottom: 0.5rem; font-size: inherit; font-weight: 600; color: inherit; }
-        .chatbot-message .prose em { font-style: italic; }
-        .chatbot-message .prose code { background-color: rgba(0, 0, 0, 0.1); padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.875em; }
-        .user-message .prose { color: white; }
-        .user-message .prose strong { color: white; }
-        .user-message .prose code { background-color: rgba(255, 255, 255, 0.2); color: white; }
+        .chatbot-message .prose {
+          line-height: 1.5;
+          font-size: 14px;
+          color: inherit;
+        }
+        
+        .chatbot-message .prose p {
+          margin-bottom: 0.75rem;
+        }
+        
+        .chatbot-message .prose p:last-child {
+          margin-bottom: 0;
+        }
+        
+        .chatbot-message .prose strong {
+          font-weight: 600;
+          color: inherit;
+        }
+        
+        .chatbot-message .prose ul, 
+        .chatbot-message .prose ol {
+          margin: 0.5rem 0;
+          padding-left: 1.25rem;
+        }
+        
+        .chatbot-message .prose li {
+          margin-bottom: 0.25rem;
+        }
+        
+        .chatbot-message .prose h1, 
+        .chatbot-message .prose h2, 
+        .chatbot-message .prose h3, 
+        .chatbot-message .prose h4, 
+        .chatbot-message .prose h5, 
+        .chatbot-message .prose h6 {
+          margin-top: 0.5rem;
+          margin-bottom: 0.5rem;
+          font-size: inherit;
+          font-weight: 600;
+          color: inherit;
+        }
+        
+        .chatbot-message .prose em {
+          font-style: italic;
+        }
+        
+        .chatbot-message .prose code {
+          background-color: rgba(0, 0, 0, 0.1);
+          padding: 0.125rem 0.25rem;
+          border-radius: 0.25rem;
+          font-size: 0.875em;
+        }
+        
+        .user-message .prose {
+          color: white;
+        }
+        
+        .user-message .prose strong {
+          color: white;
+        }
+        
+        .user-message .prose code {
+          background-color: rgba(255, 255, 255, 0.2);
+          color: white;
+        }
       `}</style>
 
       <AnimatePresence>
         {isOpen && (
-          // --- CORRECTION : Utilisation d'une méthode de positionnement plus robuste ---
           <motion.div
-            layout
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className={`fixed z-50 flex flex-col bg-white rounded-2xl shadow-2xl ${
-              isExpanded
-                ? 'inset-5 md:inset-y-10 md:inset-x-1/4' // Positionnement robuste pour l'état agrandi
-                : 'bottom-24 right-5 h-3/4 max-h-[600px] w-11/12 max-w-md' // Positionnement pour l'état normal
-            }`}
+            className="fixed bottom-24 right-5 w-11/12 max-w-md h-3/4 max-h-[600px] bg-white rounded-2xl shadow-2xl flex flex-col z-50"
           >
             <header className="bg-gradient-to-r from-teal-600 to-blue-600 text-white p-4 rounded-t-2xl flex justify-between items-center">
               <h3 className="font-bold text-lg">Discutez avec Elsy</h3>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setIsExpanded(!isExpanded)} 
-                  className="p-1 rounded-full hover:bg-white/20"
-                  aria-label={isExpanded ? "Réduire la fenêtre" : "Agrandir la fenêtre"}
-                >
-                  {isExpanded ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-                </button>
-                <button 
-                  onClick={() => setIsOpen(false)} 
-                  className="p-1 rounded-full hover:bg-white/20"
-                  aria-label="Fermer le chat"
-                >
-                  <X size={20} />
-                </button>
-              </div>
+              <button onClick={() => setIsOpen(false)} className="p-1 rounded-full hover:bg-white/20">
+                <X size={20} />
+              </button>
             </header>
             
             <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
@@ -207,10 +227,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen, initialMessage, cl
                       <Bot size={20} className="text-white" />
                     </div>
                   )}
-                  <div className={`chatbot-message px-4 py-2 rounded-2xl ${
+                  <div className={`chatbot-message px-4 py-2 rounded-2xl max-w-xs md:max-w-sm ${
                     msg.sender === 'user' 
-                      ? 'user-message bg-blue-500 text-white rounded-br-none max-w-xs md:max-w-sm' 
-                      : `bg-white text-gray-800 rounded-bl-none border ${isExpanded ? 'max-w-full' : 'max-w-xs md:max-w-sm'}`
+                      ? 'user-message bg-blue-500 text-white rounded-br-none' 
+                      : 'bg-white text-gray-800 rounded-bl-none border'
                   }`}>
                     <ReactMarkdown className="prose prose-sm">
                       {msg.text}
@@ -242,20 +262,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen, initialMessage, cl
             </div>
             
             <div className="p-4 border-t bg-white rounded-b-2xl">
-              {!isLoading && (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {predefinedQuestions.map((question, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handlePredefinedQuestionClick(question)}
-                      className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-teal-100 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
-                    >
-                      {question}
-                    </button>
-                  ))}
-                </div>
-              )}
-
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -268,7 +274,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, setIsOpen, initialMessage, cl
                 />
                 <button 
                   onClick={handleSend} 
-                  disabled={isLoading || input.trim() === ''}
+                  disabled={isLoading} 
                   className="bg-teal-600 text-white p-3 rounded-full hover:bg-teal-700 disabled:bg-gray-400 transition-colors"
                 >
                   <Send size={20} />
